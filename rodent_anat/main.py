@@ -1,3 +1,6 @@
+"""
+rodent_anat: Definition of command line interface and main script entry point
+"""
 import argparse
 
 class ArgumentParser(argparse.ArgumentParser):
