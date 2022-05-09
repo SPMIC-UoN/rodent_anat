@@ -92,6 +92,7 @@ KWARGS = {
     'entry_points' : {
        'console_scripts' : {
          'rodent_anat=rodent_anat.main:main',
+         'rodent_preproc=rodent_anat.preproc:main',
        }
     },
     'classifiers' : [
