@@ -7,6 +7,7 @@ processing
 """
 import logging
 import os
+import shutil
 
 import nibabel as nib
 import numpy as np
@@ -46,12 +47,12 @@ def to_std_orientation(fpath, out_fpath=None):
 
     :return: Tuple of axis reordering, axis flips, reordered data array
     """
-    LOG.info(f"Re-orienting {fpath} to standard orientation")
+    LOG.info(f" - Re-orienting {fpath} to standard orientation")
     nii = nib.load(fpath)
     data = nii.get_fdata()
     affine = nii.header.get_best_affine()
-    LOG.info("Affine:")
-    LOG.info(affine)
+    LOG.debug(" - Affine:")
+    LOG.debug(affine)
 
     transform = affine[:3, :3]
     dim_reorder, dim_flip = [], []
@@ -62,7 +63,7 @@ def to_std_orientation(fpath, out_fpath=None):
         if transform[newd, dim] < 0:
             dim_flip.append(newd)
 
-    LOG.debug(f"Dimension re-order: {dim_reorder}, flip: {dim_flip}")
+    LOG.debug(f" - Dimension re-order: {dim_reorder}, flip: {dim_flip}")
     if sorted(dim_reorder) != [0, 1, 2]:
         raise RuntimeError("Could not find consistent dimension re-ordering")
     
@@ -86,8 +87,8 @@ def to_std_orientation(fpath, out_fpath=None):
     # Adjust origin to correct axes flips
     for dim in dim_flip:
         new_affine[:3, 3] = new_affine[:3, 3] - new_affine[:3, dim] * (new_data.shape[dim]-1)
-    LOG.info("New affine:")
-    LOG.info(new_affine)
+    LOG.debug(" - New affine:")
+    LOG.debug(new_affine)
 
     if not out_fpath:
         out_fpath = fpath
@@ -98,7 +99,7 @@ def to_std_orientation(fpath, out_fpath=None):
             sidecar_fpath = sidecar(fpath, sidecar_ext)
             if os.path.exists(sidecar_fpath):
                 out_sidecar_fpath = sidecar(out_fpath, sidecar_ext)
-                os.copyfile(sidecar_fpath, out_sidecar_fpath)
+                shutil.copy(sidecar_fpath, out_sidecar_fpath)
 
     # Save main Nifti output
     nii_out = nib.Nifti1Image(new_data, header=nii.header, affine=new_affine)
@@ -114,6 +115,7 @@ def reorient_niftis(niftidir):
     """
     Re-orient all the Nifti files in a directory in-place
     """
+    LOG.info(f"Re-orienting files in {niftidir} to standard orientation")
     for path, _dirs, files in os.walk(niftidir):
         for fname in files:
             fpath = os.path.join(path, fname)

@@ -1,9 +1,26 @@
 """
 rodent_mri: Useful utility functions
 """
+from contextlib import contextmanager
+import logging
 import os
+import tempfile
 
 import nibabel as nib
+
+LOG = logging.getLogger(__name__)
+
+@contextmanager
+def working_dir(path):
+    """
+    Change directory as a context manager
+    """
+    origin = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(origin)
 
 def sidecar(img_fpath, ext):
     """
@@ -50,5 +67,43 @@ def orient_cost(img_fname, ref_fname):
         with open("costout", "r") as f:
             for line in f:
                 cost = float(line.split()[0])
-                LOG.info(f"Alignment of {img_fname} and {ref_fname}: cost={cost}")
+                LOG.debug(f"Alignment of {img_fname} and {ref_fname}: cost={cost}")
                 return cost
+
+def makedirs(dpath, exist_ok=False):
+    """
+    Make directories, optionally ignoring them if they already exist
+    """
+    try:
+        os.makedirs(dpath)
+    except OSError as exc:
+        import errno
+        if not exist_ok or exc.errno != errno.EEXIST:
+            raise
+
+def setup_logging(outdir=".", logfile_name="logfile", **kwargs):
+    """
+    Set the log level, formatters and output streams for the logging output
+
+    By default this goes to <outdir>/logfile at level INFO
+    """
+
+    # Set log level on the root logger to allow for the possibility of 
+    # debug logging on individual loggers
+    level = kwargs.get("log_level", "info")
+    if not level:
+        level = "info"
+    level = getattr(logging, level.upper(), logging.INFO)
+    logging.getLogger().setLevel(level)
+
+    if outdir and kwargs.get("save_log", False):
+        # Send the log to an output logfile
+        makedirs(outdir, True)
+        logfile = os.path.join(outdir, logfile_name)
+        logging.basicConfig(filename=logfile, filemode="w", level=level)
+
+    if kwargs.get("log_stream", None) is not None:
+        # Can also supply a stream to send log output to as well (e.g. sys.stdout)
+        extra_handler = logging.StreamHandler(kwargs["log_stream"])
+        extra_handler.setFormatter(logging.Formatter('%(levelname)s : %(message)s'))
+        logging.getLogger().addHandler(extra_handler)
