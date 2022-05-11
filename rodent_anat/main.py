@@ -37,7 +37,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
         group = self.add_argument_group("Pipeline dependencies")
         group.add_argument("--antspath", help="Path to ANTs executable", default="/usr/local/ANTsX/install/bin")
-        group.add_argument("--c3dpath", help="Path to c3D executables", default="/usr/local/c2d/bin")
+        group.add_argument("--c3dpath", help="Path to c3D executables", default="/usr/local/c3d/bin")
         group.add_argument("--mmorfdir", help="Path to MMORF config and Singularity image", default="/home/bbzmsc/mmorf")
 
 def main():
