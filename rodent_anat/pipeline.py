@@ -261,28 +261,20 @@ def run_anat_pipeline(options):
         fsl.applywarp(map_CSF, ref="T2_brain_ud", out="seg/atlas/T2_brain_ud_CSF", warp="ANTs/xfms/templ_to_T2_warp", interp="trilinear")
         fsl.applywarp(map_WM, ref="T2_brain_ud", out="seg/atlas/T2_brain_ud_WM", warp="ANTs/xfms/templ_to_T2_warp", interp="trilinear")
         fsl.applywarp(map_GM, ref="T2_brain_ud", out="seg/atlas/T2_brain_ud_GM", warp="ANTs/xfms/templ_to_T2_warp", interp="trilinear")
-        # ${FSLDIR}/bin/applywarp --ref=${anatdir}/T2_brain_ud --in=${map_CSF} --out=${segAtlas}/T2_brain_ud_CSF --warp=${ANTsdir}/xfms/templ_to_T2_warp --interp=trilinear
-        # ${FSLDIR}/bin/applywarp --ref=${anatdir}/T2_brain_ud --in=${map_WM} --out=${segAtlas}/T2_brain_ud_WM --warp=${ANTsdir}/xfms/templ_to_T2_warp --interp=trilinear
-        # ${FSLDIR}/bin/applywarp --ref=${anatdir}/T2_brain_ud --in=${map_GM} --out=${segAtlas}/T2_brain_ud_GM --warp=${ANTsdir}/xfms/templ_to_T2_warp --interp=trilinear
 
         LOG.info(" - Binarise probability maps")
         fsl.fslmaths("seg/atlas/T2_brain_ud_CSF").thr(0.5).bin().run("seg/atlas/T2_brain_ud_CSF_bin")
         fsl.fslmaths("seg/atlas/T2_brain_ud_WM").thr(0.5).bin().run("seg/atlas/T2_brain_ud_WM_bin")
         fsl.fslmaths("seg/atlas/T2_brain_ud_GM").thr(0.5).bin().run("seg/atlas/T2_brain_ud_GM_bin")
-        # $FSLDIR/bin/fslmaths ${segAtlas}/T2_brain_ud_CSF -thr 0.5 -bin ${segAtlas}/T2_brain_ud_CSF_bin
-        # $FSLDIR/bin/fslmaths ${segAtlas}/T2_brain_ud_WM -thr 0.5 -bin ${segAtlas}/T2_brain_ud_WM_bin
-        # $FSLDIR/bin/fslmaths ${segAtlas}/T2_brain_ud_GM -thr 0.5 -bin ${segAtlas}/T2_brain_ud_GM_bin
 
         LOG.info(" - FAST-BASED SEGMENTATION - segment brain into 3 tissue classes, in native space, using template probability maps as priors for the final segmentation as well (-P is a flag which doesn't require any inputs)")
-        fsl.fast("T2_brain_ud", out="seg/fast/T2_brain_P", type=2, n_classes=3, a="transforms/templ_to_T2_linear.mat", A=[map_CSF, map_GM, map_WM], P=True)
-        # ${FSLDIR}/bin/fast -t 2 -n 3 -a ${anatdir}/transforms/templ_to_T2_linear.mat -A ${map_CSF} ${map_GM} ${map_WM} -P -o ${segFast}/T2_brain_P ${anatdir}/T2_brain_ud
+        # FIXME fall back on command line FAST since python wrappers don't seem to work with priors
+        #fsl.fast("T2_brain_ud", out="seg/fast/T2_brain_P", type=2, n_classes=3, a="transforms/templ_to_T2_linear.mat", A=[map_CSF, map_GM, map_WM], P=True)
+        os.system(f"fast -t 2 -n 3 -a transforms/templ_to_T2_linear.mat -A {map_CSF} {map_GM} {map_WM} -P -o seg/fast/T2_brain_P T2_brain_ud")
 
         LOG.info(" - Binarise PVE maps")
         fsl.fslmaths("seg/fast/T2_brain_P_pve_0").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_0_bin")
         fsl.fslmaths("seg/fast/T2_brain_P_pve_1").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_1_bin")
         fsl.fslmaths("seg/fast/T2_brain_P_pve_2").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_2_bin")
-        # $FSLDIR/bin/fslmaths ${segFast}/T2_brain_P_pve_0 -thr 0.5 -bin ${segFast}/T2_brain_P_pve_0_bin
-        # $FSLDIR/bin/fslmaths ${segFast}/T2_brain_P_pve_1 -thr 0.5 -bin ${segFast}/T2_brain_P_pve_1_bin
-        # $FSLDIR/bin/fslmaths ${segFast}/T2_brain_P_pve_2 -thr 0.5 -bin ${segFast}/T2_brain_P_pve_2_bin
 
         LOG.info("END: rodent_struct")
