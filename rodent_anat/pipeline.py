@@ -100,6 +100,8 @@ def run_anat_pipeline(options):
         makedirs("fast", exist_ok=True)
         LOG.info(f" - Running FAST to estimate bias field: smoothing (FWHM) = {options.biassmooth}mm")
         fsl.fast("T2_brain_tmp", out="fast/T2_brain_tmp", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
+        # for low bias - fwhm = 10
+        # for high bias - fwhm = 3
 
         # # Rename the restored/undistorted (ud) brain image
         immv("fast/T2_brain_tmp_restore", "fast/T2_brain_tmp_ud", overwrite=True)
@@ -107,7 +109,9 @@ def run_anat_pipeline(options):
         # # Check that the bias correction was successful, keep intensity range constant
         fsl.slicer("fast/T2_brain_tmp_ud", i="0 1", a="bias_corr.png")
         fsl.slicer("T2_brain_tmp", i="0 1", a="no_bias_corr.png")
-
+        # for low bias - i = 0 1
+        # for high bias - i = 0 1000
+        
         if not options.nobias:
             LOG.info(" - Using estimated bias field to correct re-oriented T2 volume")
             fsl.fslmaths("T2_reorient").div("fast/T2_brain_tmp_bias").run("T2_reorient_ud")
