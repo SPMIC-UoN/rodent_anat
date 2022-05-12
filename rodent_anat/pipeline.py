@@ -17,7 +17,7 @@ Dependencies
  1. FSL (https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/)
  2. ANTs (https://github.com/ANTsX/ANTs) - this is optional
  3. If using ANTs: C3D (http://www.itksnap.org/pmwiki/pmwiki.php?n=Downloads.C3D) - used to convert ANTs warps so that compatible with FSL (note that these are not diffeomorphic)
- 4. mmorf (https://git.fmrib.ox.ac.uk/flange/mmorf_beta?web=1&wdLOR=c33787EB2-D6A8-3B41-BB61-5EF9FF5B073F#scalar-image-options)
+ 4. mmorf (https://git.fmrib.ox.ac.uk/flange/mmorf_beta) - this is optional
  5. If using mmorf: singularity and Nvidia GPU
 
 Standard templates:
@@ -26,7 +26,8 @@ Templates are derived from Barriere et al., 2019, Nat Commun, see: https://doi.o
 The olfactory bulb has been removed and the binary mask has been dilated using fslmaths -ero
 have also used fslorient2std
 
- Authors: Jenna Hanmer, Matteo Bastiani & Stamatios Sotiropoulos
+ Authors: Jenna Hanmer & Martin Craig
+ Contributors: Frederik Lange, Matteo Bastiani & Stamatios Sotiropoulos
 """
 
 import logging
