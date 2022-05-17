@@ -52,7 +52,7 @@ def run_anat_pipeline(options):
     outdir = os.path.abspath(options.output)
 
     # Templates FIXME need better system for customization
-    templdir=options.template
+    templdir = options.template
     templ = os.path.join(templdir, "SIGMA_ExVivo_Brain_Template.nii.gz")
     templmask = os.path.join(templdir, "SIGMA_ExVivo_Brain_Mask_No_OlfBulb.nii.gz")
     templmaskdil = os.path.join(templdir, "SIGMA_ExVivo_Brain_Mask_No_OlfBulb.nii.gz")
@@ -100,8 +100,8 @@ def run_anat_pipeline(options):
         makedirs("fast", exist_ok=True)
         LOG.info(f" - Running FAST to estimate bias field: smoothing (FWHM) = {options.biassmooth}mm")
         fsl.fast("T2_brain_tmp", out="fast/T2_brain_tmp", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
-        # for low bias - fwhm = 10
-        # for high bias - fwhm = 3
+        # fast parameters: for low bias - fwhm = 10
+        # fast parameters: for high bias - fwhm = 3
 
         # # Rename the restored/undistorted (ud) brain image
         immv("fast/T2_brain_tmp_restore", "fast/T2_brain_tmp_ud", overwrite=True)
@@ -109,8 +109,11 @@ def run_anat_pipeline(options):
         # # Check that the bias correction was successful, keep intensity range constant
         fsl.slicer("fast/T2_brain_tmp_ud", i="0 1", a="bias_corr.png")
         fsl.slicer("T2_brain_tmp", i="0 1", a="no_bias_corr.png")
-        # for low bias - i = 0 1
-        # for high bias - i = 0 1000
+        # slicer parameters: for low bias - i = 0 1
+        # slicer parameters: for high bias - i = 0 1000
+        
+        # # Check that the bias field is smooth 
+        # # fsl.slicer("fast/T2_brain_tmp_bias", a="bias_field.png")
         
         if not options.nobias:
             LOG.info(" - Using estimated bias field to correct re-oriented T2 volume")
