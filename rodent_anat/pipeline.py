@@ -271,9 +271,7 @@ def run_anat_pipeline(options):
         fsl.fslmaths("seg/atlas/T2_brain_ud_GM").thr(0.5).bin().run("seg/atlas/T2_brain_ud_GM_bin")
 
         LOG.info(" - FAST-BASED SEGMENTATION - segment brain into 3 tissue classes, in native space, using template probability maps as priors for the final segmentation as well (-P is a flag which doesn't require any inputs)")
-        # FIXME fall back on command line FAST since python wrappers don't seem to work with priors
-        #fsl.fast("T2_brain_ud", out="seg/fast/T2_brain_P", type=2, n_classes=3, a="transforms/templ_to_T2_linear.mat", A=[map_CSF, map_GM, map_WM], P=True)
-        os.system(f"fast -t 2 -n 3 -a transforms/templ_to_T2_linear.mat -A {map_CSF} {map_GM} {map_WM} -P -o seg/fast/T2_brain_P T2_brain_ud")
+        fsl.fast("T2_brain_ud", out="seg/fast/T2_brain_P", type=2, n_classes=3, a="transforms/templ_to_T2_linear.mat", A=(map_CSF, map_GM, map_WM), P=True)
 
         LOG.info(" - Binarise PVE maps")
         fsl.fslmaths("seg/fast/T2_brain_P_pve_0").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_0_bin")
