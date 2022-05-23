@@ -28,6 +28,7 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument("--noreorient", help="Do not re-orient files to standard orientation", action="store_true", default=False)
         group.add_argument("--nofixdti", help="Do not try to 'fix' S-I flipping in DTI files", action="store_true", default=False)
         group.add_argument("--nodticpgeom", help="Do not copy the geometry of S-I flipped DTI files from the first non-flipped DTI", action="store_true", default=False)
+        group.add_argument("--flipap", help="When re-orienting, flip the A-P axis for all scans. Used when rodent has been put tail-first into the bore rather than nose-first", action="store_true", default=False)
         group.add_argument("--debug", help="Enable debug output", action="store_true", default=False)
        
 def main():
@@ -45,16 +46,15 @@ def main():
     convert_to_nifti(options.input, options.output)
 
     if not options.noreorient:
-        reorient_niftis(options.output)
+        reorient_niftis(options.output, flip_ap=options.flipap)
 
     # Handle files by category
     categories = categorize_niftis(options.output)
     for cat, fpaths in categories.items():
         for fpath in fpaths:
             if cat == ANAT_BEST:
-                print("Renaming to anat: " + fpaths[0])
-                os.rename(fpaths[0], os.path.join(options.output, "anat.nii.gz"))
-                os.rename(sidecar(fpaths[0], "json"), os.path.join(options.output, "anat.json"))
+                os.replace(fpaths[0], os.path.join(options.output, "anat.nii.gz"))
+                os.replace(sidecar(fpaths[0], "json"), os.path.join(options.output, "anat.json"))
             elif cat == DTI:
                 standardize_dti(fpath)
 
@@ -64,6 +64,10 @@ def main():
             if cat not in (DTI, ANAT_BEST):
                 for fpath in fpaths:
                     os.remove(fpath)
+                    for ext in ("json", "bval", "bvec"):
+                        fpath_sidecar = sidecar(fpath, ext)
+                        if os.path.exists(fpath_sidecar):
+                            os.remove(fpath_sidecar)
 
     # Fix DTI orientation if requested
     if not options.nofixdti:

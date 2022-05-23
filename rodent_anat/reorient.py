@@ -16,7 +16,7 @@ from .utils import sidecar
 
 LOG = logging.getLogger(__name__)
 
-def _reorient_bvec(bvec_fpath, out_fpath, dim_reorder, dim_flip):
+def _reorient_bvec(bvec_fpath, out_fpath, dim_reorder, dim_flip, flip_ap=False):
     """
     Transform BVEC vectors from a DTI image according to the standard
     orientation changes that are being applied to the main Nifti file
@@ -33,11 +33,14 @@ def _reorient_bvec(bvec_fpath, out_fpath, dim_reorder, dim_flip):
     for dim in dim_flip:
         new_bvec[dim, :] = -new_bvec[dim, :]
     
+    if flip_ap:
+        new_bvec[1, :] = -new_bvec[1, :]
+
     # Write out converted BVECs
     with open(out_fpath, "w") as f:
         np.savetxt(f, new_bvec, fmt='%f')
 
-def to_std_orientation(fpath, out_fpath=None):
+def to_std_orientation(fpath, out_fpath=None, flip_ap=False):
     """
     Convert Nifti data to standard internal orientation
 
@@ -84,6 +87,11 @@ def to_std_orientation(fpath, out_fpath=None):
         new_data = np.flip(new_data, dim)
         new_affine[:, dim] = -new_affine[:, dim]
 
+    # Additional flip on the A-P axis in data *only* if required
+    if flip_ap:
+        LOG.debug(" - Flipping A-P dimension")
+        new_data = np.flip(new_data, 1)
+
     # Adjust origin to correct axes flips
     for dim in dim_flip:
         new_affine[:3, 3] = new_affine[:3, 3] - new_affine[:3, dim] * (new_data.shape[dim]-1)
@@ -109,15 +117,19 @@ def to_std_orientation(fpath, out_fpath=None):
     bvec_fpath = sidecar(fpath, "bvec")
     if os.path.exists(bvec_fpath):
         out_bvec_fpath = sidecar(out_fpath, "bvec")
-        _reorient_bvec(bvec_fpath, out_bvec_fpath, dim_reorder, dim_flip)
+        _reorient_bvec(bvec_fpath, out_bvec_fpath, dim_reorder, dim_flip, flip_ap)
 
-def reorient_niftis(niftidir):
+def reorient_niftis(niftidir, flip_ap=False):
     """
     Re-orient all the Nifti files in a directory in-place
+
+    :param flip_ap: If True, flip the A-P dimension in world space. Used when
+                    subject (rodent) has been put in scanner tail-first rather
+                    than the more usual nose-first
     """
     LOG.info(f"Re-orienting files in {niftidir} to standard orientation")
     for path, _dirs, files in os.walk(niftidir):
         for fname in files:
             fpath = os.path.join(path, fname)
             if ".nii" in fname:
-                to_std_orientation(fpath)
+                to_std_orientation(fpath, flip_ap=flip_ap)
