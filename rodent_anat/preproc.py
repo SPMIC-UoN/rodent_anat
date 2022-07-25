@@ -5,6 +5,9 @@ import argparse
 import os
 import logging
 import sys
+import traceback
+
+import numpy as np
 
 from .utils import makedirs, setup_logging, sidecar
 from .nifti_convert import convert_to_nifti
@@ -90,7 +93,6 @@ def main():
             LOG.warn("Can't fix DTI orientation - we don't have an anatomical image")
 
     # Fix DTI BVAL ordering if requested
-    import numpy as np
     if not options.nofixbval:
         for cat, fpaths in categories.items():
             if cat == DTI:
@@ -103,7 +105,7 @@ def main():
                         smallest_bvals = sorted(np.argpartition(bvals, num_b0s)[:num_b0s])
                         smallest_bvals_copy = list(smallest_bvals)
                         if zero_bvecs != smallest_bvals:
-                            print("WARNING: Smallest BVALS do not correspond with positions of zero bvecs")
+                            print(f"WARNING: Smallest BVALS do not correspond with positions of zero bvecs for {fpath}")
                             print(f"Zero bvecs at: {zero_bvecs}" % zero_bvecs)
                             print(f"Smallest bvals at: {smallest_bvals}")
                             new_bvals, current_bval = [], 0
@@ -116,7 +118,8 @@ def main():
                                     new_bvals.append(bvals[current_bval])
                                     current_bval += 1
                             print("Re-ordered BVALS: %s" % new_bvals)
+                            with open(sidecar(fpath, "bval"), "w") as f:
+                                np.savetxt(f, new_bvals, newline=" ", fmt='%f')
                     except:
                         print(f"WARNING: Failed to get bvals/bvecs from DTI: {fpath}")
-                        import traceback
                         traceback.print_exc()
