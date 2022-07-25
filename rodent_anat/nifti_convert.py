@@ -26,6 +26,6 @@ def convert_to_nifti(indir, outdir):
                 continue
 
             LOG.info(f" - Converting scan: {scanid}")
-            status = os.system(f"brkraw tonii {indir} -b -o {outdir}/{subj} -s {scanid} 2>stderr >stdout")
+            status = os.system(f"brkraw tonii {indir} -b -o {outdir}/{subj} -s {scanid} >>{outdir}/brkraw.log 2>&1")
             if status != 0:
                 LOG.warn(f" - Scan {scanid}: conversion FAILED")
