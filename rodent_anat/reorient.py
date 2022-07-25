@@ -74,10 +74,9 @@ def to_std_orientation(fpath, out_fpath=None, flip_ap=False):
     new_affine = np.copy(affine)
 
     # Re-order axes
-    if new_data.ndim == 4:
-        dim_transpose = list(dim_reorder) + [3]
-    else:
-        dim_transpose = dim_reorder
+    dim_transpose = list(dim_reorder)
+    if len(dim_transpose) < new_data.ndim:
+        dim_transpose = dim_transpose + list(range(len(dim_transpose), new_data.ndim))
     new_data = np.transpose(new_data, dim_transpose)
     for idx, dim in enumerate(dim_reorder):
         new_affine[:, dim] = affine[:, idx]
