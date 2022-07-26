@@ -4,6 +4,7 @@ rodent_anat: Definition of command line interface and main script entry point
 import argparse
 import os
 import sys
+from tkinter import E
 
 from .utils import makedirs, setup_logging
 from .pipeline import run_anat_pipeline
@@ -13,9 +14,9 @@ class ArgumentParser(argparse.ArgumentParser):
         argparse.ArgumentParser.__init__(self, prog="rodent_anat", add_help=True, **kwargs)
 
         group = self.add_argument_group("Input/output Options")
-        group.add_argument("-i", "--input", help="T2 weighted structural image - should be isotropic")
+        group.add_argument("-i", "--input", required=True, help="T2 weighted structural image - should be isotropic")
         group.add_argument("-o", "--output", help="Basename of directory for output (default is input image basename followed by .anat)")
-        group.add_argument("--clobber", help="Type of average to report in iteration logs (mean or median)", action="store_true", default=False)
+        group.add_argument("--overwrite", "--clobber", help="Overwrite existing output directory", action="store_true", default=False)
         group.add_argument("--nocleanup", help="Do not remove intermediate files", action="store_true", default=False)
         
         group = self.add_argument_group("Pipeline options")
@@ -39,24 +40,30 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument("--mmorfdir", help="Path to MMORF config and Singularity image", default="/home/bbzmsc/mmorf")
 
 def main():
-    options = ArgumentParser().parse_args()
-    if options.strongbias and options.weakbias:
-        raise ValueError("Can't specify --strongbias and --weakbias at the same time")
-    elif not options.strongbias:
-        options.weakbias = True
+    parser = ArgumentParser()
+    options = parser.parse_args()
+    try:
+        if options.strongbias and options.weakbias:
+            parser.error("Can't specify --strongbias and --weakbias at the same time")
+        elif not options.strongbias:
+            options.weakbias = True
 
-    if not options.template:
-        options.template = "/home/bbzmsc/SIGMA_template"
+        if not options.template:
+            options.template = "/home/bbzmsc/SIGMA_template"
 
-    if not options.input:
-        raise ValueError(f"Input image not specified")
-    if not options.output:
-        options.output = os.path.basename(options.input) + ".anat"
+        if not options.output:
+            options.output = os.path.basename(options.input) + ".anat"
 
-    if os.path.exists(options.output) and not options.clobber:
-        raise ValueError(f"Output directory {options.output} already exists - use --clobber to ignore")
+        if os.path.exists(options.output) and not options.overwrite:
+            parser.error(f"Output directory {options.output} already exists - use --overwrite to ignore")
 
-    makedirs(options.output, True)
-    setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="rodent_anat.log")
+        makedirs(options.output, True)
+        setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="rodent_anat.log")
 
-    run_anat_pipeline(options)
+        run_anat_pipeline(options)
+    except Exception as exc:
+        sys.stderr.write(f"ERROR: {exc}\n")
+        if options.debug:
+            raise
+        else:
+            sys.exit(1)
