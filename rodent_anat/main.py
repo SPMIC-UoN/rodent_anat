@@ -6,8 +6,7 @@ import os
 import sys
 from tkinter import E
 
-from .utils import makedirs, setup_logging
-from .pipeline import run_anat_pipeline
+from . import utils, anat_pipeline, report
 
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, **kwargs):
@@ -18,6 +17,7 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument("-o", "--output", help="Basename of directory for output (default is input image basename followed by .anat)")
         group.add_argument("--overwrite", "--clobber", help="Overwrite existing output directory", action="store_true", default=False)
         group.add_argument("--nocleanup", help="Do not remove intermediate files", action="store_true", default=False)
+        group.add_argument("--noreport", help="Do not generate report", action="store_true", default=False)
         
         group = self.add_argument_group("Pipeline options")
         group.add_argument("--strongbias", help="Used for images with very strong bias fields", action="store_true", default=False)
@@ -57,10 +57,12 @@ def main():
         if os.path.exists(options.output) and not options.overwrite:
             parser.error(f"Output directory {options.output} already exists - use --overwrite to ignore")
 
-        makedirs(options.output, True)
-        setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="rodent_anat.log")
+        utils.makedirs(options.output, True)
+        utils.setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="rodent_anat.log")
 
-        run_anat_pipeline(options)
+        anat_pipeline.run(options)
+        if not options.noreport:
+            report.run(options)
     except Exception as exc:
         sys.stderr.write(f"ERROR: {exc}\n")
         if options.debug:
