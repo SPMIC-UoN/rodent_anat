@@ -71,9 +71,9 @@ def to_std_orientation(fpath, out_fpath=None, convention=NEURO, flip_ap=False):
     for dim in range(3):
         newd = np.argmax(absmat[:, dim])
         dim_reorder.append(newd)
-        if dim == 0 and transform[newd, dim]*convention < 0:
+        if newd == 0 and transform[newd, dim]*convention < 0:
             dim_flip.append(newd)
-        elif dim != 0 and transform[newd, dim] < 0:
+        if newd != 0 and transform[newd, dim] < 0:
             dim_flip.append(newd)
 
     LOG.debug(f" - Dimension re-order: {dim_reorder}, flip: {dim_flip}")
