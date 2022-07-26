@@ -19,12 +19,12 @@ LOG = logging.getLogger(__name__)
 
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, **kwargs):
-        argparse.ArgumentParser.__init__(self, prog="bruker_preproc", add_help=True, **kwargs)
+        argparse.ArgumentParser.__init__(self, prog="rodent_preproc", add_help=True, **kwargs)
 
         group = self.add_argument_group("Input/output Options")
-        group.add_argument("-i", "--input", help="Directory containing raw Bruker data", default="")
-        group.add_argument("-o", "--output", help="Output directory", default="")
-        group.add_argument("--overwrite", help="If specified will overwrite output directory if it already exists", action="store_true", default=False)
+        group.add_argument("-i", "--input", required=True, help="Directory containing raw Bruker data")
+        group.add_argument("-o", "--output", required=True, help="Output directory")
+        group.add_argument("--overwrite", "--clobber", help="If specified will overwrite output directory if it already exists", action="store_true", default=False)
         
         group = self.add_argument_group("Preprocessing options")
         group.add_argument("--noprune", help="Do not remove files that we don't think we need (low-res anatomical, single volume DTI, localizer)", action="store_true", default=False)
@@ -35,26 +35,8 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument("--flipap", help="When re-orienting, flip the A-P axis for all scans. Used when rodent has been put tail-first into the bore rather than nose-first", action="store_true", default=False)
         group.add_argument("--debug", help="Enable debug output", action="store_true", default=False)
        
-def main():
-    options = ArgumentParser().parse_args()
-    if not os.path.isdir(options.input):
-        raise ValueError(f"Input directory {options.input} does not exist or is not a directory")
-    if not options.output:
-        raise ValueError(f"Output directory not specified")
-    if os.path.exists(options.output) and not options.overwrite:
-        raise ValueError(f"Output directory {options.output} already exists - use --overwrite to ignore")
-
-    makedirs(options.output, True)
-    setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="preproc.log")
-
-    convert_to_nifti(options.input, options.output)
-
-    if not options.noreorient:
-        reorient_niftis(options.output, flip_ap=options.flipap)
-
-    # Handle files by category
-    categories = categorize_niftis(options.output)
-    for cat, fpaths in categories.items():
+def preproc(categorized_files, options):
+    for cat, fpaths in categorized_files.items():
         for fpath in fpaths:
             if cat == ANAT_BEST:
                 os.replace(fpaths[0], os.path.join(options.output, "anat.nii.gz"))
@@ -62,9 +44,9 @@ def main():
             elif cat == DTI:
                 standardize_dti(fpath)
 
-    # Prune files we don't need
+def prune(categorized_files, options):
     if not options.noprune:
-        for cat, fpaths in categories.items():
+        for cat, fpaths in categorized_files.items():
             if cat not in (DTI, ANAT_BEST):
                 for fpath in fpaths:
                     os.remove(fpath)
@@ -73,12 +55,12 @@ def main():
                         if os.path.exists(fpath_sidecar):
                             os.remove(fpath_sidecar)
 
-    # Fix DTI orientation if requested
+def fix_dti_orinetation(categorized_files, options):
     if not options.nofixdti:
-        if categories[ANAT_BEST]:
-            anat_fpath = categories[ANAT_BEST][0]
+        if categorized_files[ANAT_BEST]:
+            anat_fpath = categorized_files[ANAT_BEST][0]
             flipped_dtis, nonflipped_dtis = [], []
-            for fpath in categories[DTI]:
+            for fpath in categorized_files[DTI]:
                 was_flipped = fix_dti_orientation(fpath, anat_fpath)
                 if not was_flipped:
                     nonflipped_dtis.append(fpath)
@@ -92,9 +74,9 @@ def main():
         else:
             LOG.warn("Can't fix DTI orientation - we don't have an anatomical image")
 
-    # Fix DTI BVAL ordering if requested
+def fix_bval_ordering(categorized_files, options):
     if not options.nofixbval:
-        for cat, fpaths in categories.items():
+        for cat, fpaths in categorized_files.items():
             if cat == DTI:
                 for fpath in fpaths:
                     try:
@@ -123,3 +105,39 @@ def main():
                     except:
                         print(f"WARNING: Failed to get bvals/bvecs from DTI: {fpath}")
                         traceback.print_exc()
+
+def main():
+    parser = ArgumentParser()
+    options = parser.parse_args()
+    try:
+        if not os.path.isdir(options.input):
+            parser.error(f"Input directory {options.input} does not exist or is not a directory")
+        if os.path.exists(options.output) and not options.overwrite:
+            parser.error(f"Output directory {options.output} already exists - use --overwrite to ignore")
+
+        makedirs(options.output, True)
+        setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="preproc.log")
+
+        # Convert data to NIFTI in standard orientation and categorize files
+        convert_to_nifti(options.input, options.output)
+        if not options.noreorient:
+            reorient_niftis(options.output, flip_ap=options.flipap)
+        categorized_files = categorize_niftis(options.output)
+
+        # Preprocess files by category
+        preproc(categorized_files, options)
+        
+        # Prune files we don't need
+        prune(categorized_files, options)
+
+        # Fix DTI orientation if requested
+        fix_dti_orientation(categorized_files, options)
+        
+        # Fix DTI BVAL ordering if requested
+        fix_bval_ordering(categorized_files, options)
+    except Exception as exc:
+        sys.stderr.write(f"ERROR: {exc}\n")
+        if options.debug:
+            raise
+        else:
+            sys.exit(1)
