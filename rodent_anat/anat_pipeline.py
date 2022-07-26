@@ -31,11 +31,8 @@ have also used fslorient2std
 
 import logging
 import os
-import shutil
 
-import nibabel as nib
-
-from fsl.data.image import Image, defaultExt
+from fsl.data.image import Image
 import fsl.wrappers as fsl
 from fsl.utils.imcp import immv
 
@@ -44,7 +41,7 @@ from .utils import working_dir, makedirs
 
 LOG = logging.getLogger(__name__)
 
-def run_anat_pipeline(options):
+def run(options):
     LOG.info("START: rodent_anat")
     LOG.info("Step 1: housekeeping, error checking and reorientation")
 
