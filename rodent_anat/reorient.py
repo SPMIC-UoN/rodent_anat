@@ -16,6 +16,10 @@ from .utils import sidecar
 
 LOG = logging.getLogger(__name__)
 
+# Orientation conventions. Neurological -> determinant of QFORM/SFORM>0, radiological<0
+NEURO = 1
+RADIO = -1
+
 def _reorient_bvec(bvec_fpath, out_fpath, dim_reorder, dim_flip, flip_ap=False):
     """
     Transform BVEC vectors from a DTI image according to the standard
@@ -40,9 +44,13 @@ def _reorient_bvec(bvec_fpath, out_fpath, dim_reorder, dim_flip, flip_ap=False):
     with open(out_fpath, "w") as f:
         np.savetxt(f, new_bvec, fmt='%f')
 
-def to_std_orientation(fpath, out_fpath=None, flip_ap=False):
+def to_std_orientation(fpath, out_fpath=None, convention=NEURO, flip_ap=False):
     """
     Convert Nifti data to standard internal orientation
+
+    In standard orientation the voxel->world matrix is close
+    to diagonal with the first dimension negative and the
+    second and third dimensions positive
 
     :param fpath: Path to Nifti image
     :param out_fpath: If specified, path to save output. If not specified
@@ -50,7 +58,7 @@ def to_std_orientation(fpath, out_fpath=None, flip_ap=False):
 
     :return: Tuple of axis reordering, axis flips, reordered data array
     """
-    LOG.info(f" - Re-orienting {fpath} to standard orientation")
+    LOG.info(f" - Re-orienting {fpath} to standard orientation using convention {convention}")
     nii = nib.load(fpath)
     data = nii.get_fdata()
     affine = nii.header.get_best_affine()
@@ -63,7 +71,9 @@ def to_std_orientation(fpath, out_fpath=None, flip_ap=False):
     for dim in range(3):
         newd = np.argmax(absmat[:, dim])
         dim_reorder.append(newd)
-        if transform[newd, dim] < 0:
+        if dim == 0 and transform[newd, dim]*convention < 0:
+            dim_flip.append(newd)
+        elif dim != 0 and transform[newd, dim] < 0:
             dim_flip.append(newd)
 
     LOG.debug(f" - Dimension re-order: {dim_reorder}, flip: {dim_flip}")
