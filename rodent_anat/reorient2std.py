@@ -18,7 +18,7 @@ def main():
     parser = ArgumentParser()
     options = parser.parse_args()
     try:
-        utils.setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=False, log_stream=sys.stdout)
+        utils.setup_logging(level="DEBUG" if options.debug else "WARN", log_stream=sys.stdout)
         reorient.to_std_orientation(options.input, options.output, convention=reorient.NEURO if options.convention == "neuro" else reorient.RADIO)
     except Exception as exc:
         sys.stderr.write(f"ERROR: {exc}\n")
