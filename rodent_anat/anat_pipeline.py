@@ -141,16 +141,16 @@ def run(options):
             # Note: antsRegistrationSyN actually includes optimisation of rigid, affine and SyN transformations
             # Note: antsRegistrationSyN works best on skull-stripped, bias corrected data
             # see: https://github.com/ANTsX/ANTs/wiki/Anatomy-of-an-antsRegistration-call
-            os.system(f"{options.antspath}/antsRegistrationSyN.sh -d 3 -f {templ_brain} -m T2_to_templ_linear.nii.gz -j 1 -o ANTs/T2_to_templ_ANTs_ -x {templ_mask_dil} |tee ANTs/ants.log")
+            os.system(f"{options.antsdir}/antsRegistrationSyN.sh -d 3 -f {templ_brain} -m T2_to_templ_linear.nii.gz -j 1 -o ANTs/T2_to_templ_ANTs_ -x {templ_mask_dil} |tee ANTs/ants.log")
 
             # Check that this is working correctly
             fsl.slicer("ANTs/T2_to_templ_ANTs_Warped", templ_brain, a="ANTs/ANTS.png")
 
             LOG.info(" - Converting ANTs warps so that they are compatible with FSL (ITK transform (RAS) matrix to FSL xfm)")
-            os.system(f"{options.c3dpath}/c3d_affine_tool -ref {templ_brain} -src T2_to_templ_linear.nii.gz -itk ANTs/T2_to_templ_ANTs_0GenericAffine.mat -ras2fsl -o ANTs/ANTs_T2_to_templ_affine_flirt.mat")
+            os.system(f"{options.c3ddir}/c3d_affine_tool -ref {templ_brain} -src T2_to_templ_linear.nii.gz -itk ANTs/T2_to_templ_ANTs_0GenericAffine.mat -ras2fsl -o ANTs/ANTs_T2_to_templ_affine_flirt.mat")
 
             LOG.info(" - Performing multicomponent split (-mcs)")
-            os.system(f"{options.c3dpath}/c3d -mcs ANTs/T2_to_templ_ANTs_1Warp.nii.gz -oo ANTs/wx.nii.gz ANTs/wy.nii.gz ANTs/wz.nii.gz")
+            os.system(f"{options.c3ddir}/c3d -mcs ANTs/T2_to_templ_ANTs_1Warp.nii.gz -oo ANTs/wx.nii.gz ANTs/wy.nii.gz ANTs/wz.nii.gz")
 
             LOG.info(" - Flipping warp")
             fsl.fslmaths("ANTs/wy").mul(-1).run("ANTs/i_wy")

@@ -4,7 +4,7 @@ rodent_anat: Definition of command line interface and main script entry point
 import argparse
 import os
 import sys
-from tkinter import E
+from pathlib import Path
 
 from . import utils, anat_pipeline, report
 
@@ -31,13 +31,13 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument("--nosearch", help="Specify that linear registration uses the -nosearch option", action="store_true", default=False)
         group.add_argument("-s", "--biassmooth", help="Specify the value for bias field smoothing (the -l option in FAST)", type=int, default=10)
         group.add_argument("--nonlinreg", help="Non-linear registration method", choices=["ants", "mmorf"], default="mmorf")
-        group.add_argument("--template", help="Path to template file if not using default SIGMA template")
+        group.add_argument("--template", help="Path to directory containing SIGMA template files (default=$HOME/SIGMA_template)")
         group.add_argument("--debug", help="Enable debug output", action="store_true", default=False)
 
         group = self.add_argument_group("Pipeline dependencies")
-        group.add_argument("--antspath", help="Path to ANTs executable", default="/usr/local/ANTsX/install/bin")
-        group.add_argument("--c3dpath", help="Path to c3D executables", default="/usr/local/c3d/bin")
-        group.add_argument("--mmorfdir", help="Path to MMORF config and Singularity image", default="/home/bbzmsc/mmorf")
+        group.add_argument("--antsdir", help="Path to ANTs executable directory", default="/usr/local/ANTsX/install/bin")
+        group.add_argument("--c3ddir", help="Path to c3D executable directory", default="/usr/local/c3d/bin")
+        group.add_argument("--mmorfdir", help="Path to MMORF config and Singularity image directory (default=$HOME/mmorf)")
 
 def main():
     parser = ArgumentParser()
@@ -48,11 +48,16 @@ def main():
         elif not options.strongbias:
             options.weakbias = True
 
-        if not options.template:
-            options.template = "/home/bbzmsc/SIGMA_template"
-
         if not options.output:
-            options.output = os.path.basename(options.input) + ".anat"
+            inpath = os.path.abspath(options.input)
+            inpath = inpath[:inpath.index(".nii")]
+            options.output = inpath + ".anat"
+
+        if not options.template:
+            options.template = os.path.join(Path.home(), "SIGMA_template")
+
+        if not options.mmorfdir:
+            options.mmorfdir = os.path.join(Path.home(), "mmorf")
 
         if os.path.exists(options.output) and not options.overwrite:
             parser.error(f"Output directory {options.output} already exists - use --overwrite to ignore")
