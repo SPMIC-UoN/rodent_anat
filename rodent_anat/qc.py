@@ -27,15 +27,15 @@ def run(options):
 
         # Check that the bias correction was successful, keep intensity range constant
         if not options.nobias:
-            fsl.slicer("T2_brain", i="0 1", a="qc/bias_corr.png")
-            fsl.slicer("T2_brain_nobiascorr", i="0 1", a="qc/no_bias_corr.png")
-            fsl.slicer("T2_templ_linear_nobiascorr", templ_brain, a="qc/reg_linear_biased.png", i="0 1")
+            fsl.slicer("T2_brain_linear", i="0 1", a="qc/biascorr.png")
+            fsl.slicer("T2_brain_linear_nobiascorr", i="0 1", a="qc/nobiascorr.png")
+            fsl.slicer("T2_templ_linear_nobiascorr", templ_brain, a="qc/reg_linear_nobiascorr.png", i="0 1")
 
         # Check that the brain masking was successful in native and standard space
         fsl.slicer("T2_reorient", "T2_brain_mask_linear", a="qc/skull_strip_linear.png")
-        fsl.slicer("T2_brain_templ_linear", templ_brain, out="qc/skull_strip_std_space_linear.png")
+        fsl.slicer("T2_brain_templ_linear", templ_brain, a="qc/skull_strip_std_space_linear.png")
         if options.nonlinreg:
-            fsl.slicer("T2_reorient", "T2_brain_mask", out="qc/skull_strip_nonlin.png")
-            fsl.slicer("T2_brain_templ", templ_brain, out="qc/skull_strip_std_space_nonlin.png")
+            fsl.slicer("T2_reorient", "T2_brain_mask", a="qc/skull_strip_nonlin.png")
+            fsl.slicer("T2_brain_templ", templ_brain, a="qc/skull_strip_std_space_nonlin.png")
 
     LOG.info("DONE: GENERATING QC DATA")
