@@ -70,8 +70,16 @@ def run(options):
 
         LOG.info("Step 2: Performing initial brain extraction and registration to standard template")
 
+        # Files generated
+        # T2_templ_linear - T2 registered to template
+        # T2_to_templ_linear.mat - linear transform
+        # templ_to_T2_linear.mat - linear transform
+        # T2_brain_mask - template mask aligned to T2 image
+        # T2_brain - Brain extracted T2
+        # T2_brain_templ_linear - Brain extracted T2 aligned with template
+
         LOG.info(" - Performing linear registration of T2 to brain-only template")
-        fsl.flirt("T2_reorient", templ_brain, out="T2_to_templ_linear", omat="T2_to_templ_linear.mat") # -dof 12
+        fsl.flirt("T2_reorient", templ_brain, out="T2_templ_linear", omat="T2_to_templ_linear.mat") # -dof 12
 
         LOG.info(" - Inverting linear registration of T2 to brain-only template")
         fsl.invxfm("T2_to_templ_linear.mat", "templ_to_T2_linear.mat")
@@ -83,46 +91,60 @@ def run(options):
         fsl.fslmaths("T2_reorient").mul("T2_brain_mask").run("T2_brain")
 
         LOG.info(" - Transforming brain extracted T2 into standard template space")
-        fsl.applyxfm("T2_brain", templ_brain, "T2_to_templ_linear.mat", out="T2_brain_templ", interp="trilinear")
-
-        LOG.info("Step 3: correct bias-field in skull-stripped T2 volume")
-
-        LOG.info(f" - Running FAST to estimate bias field: smoothing (FWHM) = {options.biassmooth}mm")
-        makedirs("fast", exist_ok=True)
-        fsl.fast("T2_brain", out="fast/T2_brain", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
-
-        # Rename the restored/undistorted (ud) brain image
-        #immv("fast/T2_brain_restore", "fast/T2_brain_ud", overwrite=True)
-        imcp("fast/T2_brain_restore", "T2_brain_ud", overwrite=True)
+        fsl.applyxfm("T2_brain", templ_brain, "T2_to_templ_linear.mat", out="T2_brain_templ_linear", interp="trilinear")
 
         if not options.nobias:
-            LOG.info(" - Using estimated bias field to correct re-oriented T2 volume")
-            fsl.fslmaths("T2_reorient").div("fast/T2_brain_bias").run("T2_reorient_ud")
+            LOG.info("Step 3: correct bias-field in skull-stripped T2 volume")
+            # Files generated
+            # T2_brain_ud - Brain extracted T2 without bias field
+            # T2_ud - T2 without bias field
+
+            LOG.info(f" - Running FAST to estimate bias field: smoothing (FWHM) = {options.biassmooth}mm")
+            makedirs("fast", exist_ok=True)
+            fsl.fast("T2_brain", out="fast/T2_brain", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
+
+            # # Clean up directory
+            # rm ${fastdir}/T2_brain_tmp_seg*
+
+            LOG.info(" - Using estimated bias field to correct T2")
+            imcp("fast/T2_brain_restore", "T2_brain_ud", overwrite=True)
+            fsl.fslmaths("T2_reorient").div("fast/T2_brain_bias").run("T2_ud")
+
+            LOG.info("Step 4: Refine the linear registration using the bias corrected brain")
+
+            # Files generated
+            # T2_brain_ud_templ_linear - undistorted T2 registered to template
+            # T2_to_templ_linear_ud.mat - linear transform
+            # templ_to_T2_linear_ud.mat - linear transform
+            # T2_brain_mask_ud - Template brain mask aligned with undistorted T2
+            # T2_brain_ud_templ_linear - Undistorted brain-extracted T2 aligned with template
+
+            LOG.info(" - Generate the affine transform from the bias-corrected brain to standard brain-only template")
+            fsl.flirt("T2_brain_ud", templ_brain, out="T2_brain_ud_templ_linear", omat="T2_to_templ_linear_ud.mat")
+
+            LOG.info(" - Inverting linear transform of bias-corrected brain to standard brain-only template")
+            fsl.invxfm("T2_to_templ_linear_ud.mat", "templ_to_T2_linear_ud.mat")
+
+            LOG.info(" - Transforming dilated template brain mask to bias-corrected T2 native space")
+            fsl.applyxfm(templ_mask_dil, "T2_brain_ud", "templ_to_T2_linear_ud.mat", interp="nearestneighbour", out="T2_brain_mask_ud")
+
+            # FIXME Not required - have this from FAST
+            # LOG.info(" - Removing skull from bias-corrected T2")
+            #fsl.fslmaths("T2_ud").mul("T2_brain_mask_ud").run("T2_brain_ud")
+
+            LOG.info(" - Transforming brain extracted bias-corrected T2 into standard template space")
+            fsl.applyxfm("T2_brain_ud", templ_brain, "templ_to_T2_linear_ud.mat", out="T2_brain_ud_templ_linear", interp="trilinear")
+
+            #LOG.info(" - Comparing success of linear registration on skull-stripped data with and without bias correction")
+            #fsl.flirt("T2_brain_dil", templ_brain, out="T2_brain_templ_linear_biased", dof=12)
         else:
-            LOG.info(" - Bias field correction disabled")
-
-        # # Clean up directory
-        # rm ${fastdir}/T2_brain_tmp_seg*
-
-        LOG.info("Step 4: Refine the linear registration using the bias corrected brain")
-
-        LOG.info(" - Generate the affine transform from the bias-corrected brain to standard brain-only template")
-        fsl.flirt("T2_brain_ud", templ_brain, out="T2_to_templ_linear_ud", omat="T2_to_templ_linear_ud.mat")
-
-        LOG.info(" - Inverting linear transform of bias-corrected brain to standard brain-only template")
-        fsl.invxfm("T2_to_templ_linear_ud.mat", "templ_to_T2_linear_ud.mat")
-
-        LOG.info(" - Transforming dilated template brain mask to bias-corrected T2 native space")
-        fsl.applyxfm(templ_mask_dil, "T2_brain_ud", "templ_to_T2_linear_ud.mat", interp="nearestneighbour", out="T2_brain_mask_ud")
-
-        #LOG.info(" - Comparing success of linear registration on skull-stripped data with and without bias correction")
-        #fsl.flirt("T2_brain_dil", templ_brain, out="T2_brain_templ_linear_biased", dof=12)
+            LOG.info("Bias field correction (Step 3, 4) disabled")
 
         LOG.info("Step 5: Perform nonlinear registration to map T2 to the standard template")
 
         if options.nonlinreg == "ants":
             LOG.info(" - Running nonlinear registration using ANTs")
-            makedirs("ANTs", exist_ok=True)
+            makedirs("ants", exist_ok=True)
 
             # Run the script antsRegistrationSyN.sh using brain-extracted bias-corrected scan and brain-only template, default is double precision, 
             # use histogram matching (-j) because template and scan are the from the same modality, use mask (-x) for template so that exclude the
@@ -130,37 +152,37 @@ def run(options):
             # Note: antsRegistrationSyN actually includes optimisation of rigid, affine and SyN transformations
             # Note: antsRegistrationSyN works best on skull-stripped, bias corrected data
             # see: https://github.com/ANTsX/ANTs/wiki/Anatomy-of-an-antsRegistration-call
-            os.system(f"{options.antspath}/antsRegistrationSyN.sh -d 3 -f {templ_brain} -m T2_to_templ_linear.nii.gz -j 1 -o ANTs/T2_to_templ_ANTs_ -x {templ_mask_dil} |tee ANTs/ants.log")
+            os.system(f"{options.antspath}/antsRegistrationSyN.sh -d 3 -f {templ_brain} -m T2_brain_ud_templ_linear.nii.gz -j 1 -o ants/T2_to_templ_ -x {templ_mask_dil} |tee ants/ants.log")
 
-            LOG.info(" - Converting ANTs warps so that they are compatible with FSL (ITK transform (RAS) matrix to FSL xfm)")
-            os.system(f"{options.c3dpath}/c3d_affine_tool -ref {templ_brain} -src T2_to_templ_linear.nii.gz -itk ANTs/T2_to_templ_ANTs_0GenericAffine.mat -ras2fsl -o ANTs/ANTs_T2_to_templ_affine_flirt.mat")
+            LOG.info(" - Converting ANTs transforms so that they are compatible with FSL (ITK transform (RAS) matrix to FSL xfm)")
+            os.system(f"{options.c3dpath}/c3d_affine_tool -ref {templ_brain} -src T2_brain_ud_templ_linear.nii.gz -itk ants/T2_to_templ_ants_0GenericAffine.mat -ras2fsl -o ants/T2_to_templ_linear.mat")
 
             LOG.info(" - Performing multicomponent split (-mcs)")
-            os.system(f"{options.c3dpath}/c3d -mcs ANTs/T2_to_templ_ANTs_1Warp.nii.gz -oo ANTs/wx.nii.gz ANTs/wy.nii.gz ANTs/wz.nii.gz")
+            os.system(f"{options.c3dpath}/c3d -mcs ants/T2_to_templ_1Warp.nii.gz -oo ants/wx.nii.gz ants/wy.nii.gz ants/wz.nii.gz")
 
             LOG.info(" - Flipping warp")
-            fsl.fslmaths("ANTs/wy").mul(-1).run("ANTs/i_wy")
+            fsl.fslmaths("ants/wy").mul(-1).run("ants/i_wy")
 
             LOG.info(" - Concatenating components to give whole warp")
             # FIXME
-            os.system("fslmerge -t ANTs/ANTs_T2_to_templ_warp_fnirt ANTs/wx ANTs/i_wy ANTs/wz")
+            os.system("fslmerge -t ants/T2_to_templ_warp_fnirt ants/wx ants/i_wy ants/wz")
 
-            makedirs("ANTs/xfms", exist_ok=True)
+            makedirs("ants/xfms", exist_ok=True)
                     
             LOG.info(" - Combining linear transform generated by ANTs with linear transform generated in step 4")
-            fsl.concatxfm("ANTs/ANTs_T2_to_templ_affine_flirt.mat", "T2_to_templ_linear.mat", "ANTs/T2_to_templ_linear_x2.mat")
-            # ${FSLDIR}/bin/convert_xfm -omat ${ANTsdir}/T2_to_templ_linear_x2.mat -concat ${ANTsdir}/ANTs_T2_to_templ_affine_flirt.mat ${anatdir}/T2_to_templ_linear.mat
+            fsl.concatxfm("ants/ants_T2_to_templ_affine_flirt.mat", "T2_to_templ_linear_ud.mat", "ants/T2_to_templ_linear_x2.mat")
+            # ${FSLDIR}/bin/convert_xfm -omat ${antsdir}/T2_to_templ_linear_x2.mat -concat ${antsdir}/ants_T2_to_templ_affine_flirt.mat ${anatdir}/T2_to_templ_linear.mat
 
             LOG.info(" - Combining linear transform generated in previous step with the warp generated by ANTs")
-            fsl.convertwarp(ref=templ_brain, premat="ANTs/T2_to_templ_linear_x2.mat", warp1="ANTs/ANTs_T2_to_templ_warp_fnirt", out="ANTs/xfms/T2_to_templ_warp")
-            # ${FSLDIR}/bin/convertwarp --ref=${tempBrain} --premat=${ANTsdir}/T2_to_templ_linear_x2.mat --warp1=${ANTsdir}/ANTs_T2_to_templ_warp_fnirt --out=${ANTsdir}/xfms/T2_to_templ_warp
-            # # ${FSLDIR}/bin/convertwarp --ref=${tempBrain} --premat=${ANTsdir}/ANTs_T2_to_templ_affine_flirt.mat --warp1=${ANTsdir}/ANTs_T2_to_templ_warp_fnirt --out=${ANTsdir}/xfms/T2_to_templ_warp
+            fsl.convertwarp(ref=templ_brain, premat="ants/T2_to_templ_linear_x2.mat", warp1="ants/ants_T2_to_templ_warp_fnirt", out="ants/xfms/T2_to_templ_warp")
+            # ${FSLDIR}/bin/convertwarp --ref=${tempBrain} --premat=${antsdir}/T2_to_templ_linear_x2.mat --warp1=${antsdir}/ants_T2_to_templ_warp_fnirt --out=${antsdir}/xfms/T2_to_templ_warp
+            # # ${FSLDIR}/bin/convertwarp --ref=${tempBrain} --premat=${antsdir}/ants_T2_to_templ_affine_flirt.mat --warp1=${antsdir}/ants_T2_to_templ_warp_fnirt --out=${antsdir}/xfms/T2_to_templ_warp
 
             LOG.info(" - Generating inverse of warp")
-            fsl.invwarp("ANTs/xfms/T2_to_templ_warp", "T2_to_templ_linear", out="ANTs/xfms/templ_to_T2_warp")
+            fsl.invwarp("ants/xfms/T2_to_templ_warp", "T2_to_templ_linear", out="ants/xfms/templ_to_T2_warp")
             
-            T2_to_templ_warp = "ANTs/xfms/T2_to_templ_warp"
-            templ_to_T2_warp = "ANTs/xfms/templ_to_T2_warp"
+            T2_to_templ_warp = "ants/xfms/T2_to_templ_warp"
+            templ_to_T2_warp = "ants/xfms/templ_to_T2_warp"
 
         elif options.nonlinreg == "mmorf":
             LOG.info(" - Running nonlinear registration using MMORF")
