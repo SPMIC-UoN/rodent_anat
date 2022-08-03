@@ -43,7 +43,7 @@ from .utils import working_dir, makedirs
 LOG = logging.getLogger(__name__)
 
 def run(options):
-    LOG.info("START: rodent_anat")
+    LOG.info("START: RODENT_ANAT PIPELINE")
     LOG.info("Step 1: housekeeping, error checking and reorientation")
 
     outdir = os.path.abspath(options.output)
@@ -293,4 +293,4 @@ def run(options):
         fsl.fslmaths("seg/fast/T2_brain_P_pve_1").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_1_bin")
         fsl.fslmaths("seg/fast/T2_brain_P_pve_2").thr(0.5).bin().run("seg/fast/T2_brain_P_pve_2_bin")
 
-        LOG.info("END: rodent_struct")
+    LOG.info("DONE: RODENT_ANAT PIPELINE")
