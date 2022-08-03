@@ -96,13 +96,13 @@ def run(options):
 
         if not options.nobias:
             LOG.info("Step 3: correct bias-field in skull-stripped T2 volume")
-            imcp("T2_reorient", "T2_reorient_nobiascorr")
-            imcp("T2_brain_linear", "T2_brain_linear_nobiascorr")
-            imcp("T2_brain_mask_linear", "T2_brain_mask_linear_nobiascorr")
+            imcp("T2_reorient", "T2_reorient_nobiascorr", overwrite=True)
+            imcp("T2_brain_linear", "T2_brain_linear_nobiascorr", overwrite=True)
+            imcp("T2_brain_mask_linear", "T2_brain_mask_linear_nobiascorr", overwrite=True)
             shutil.copyfile("T2_to_templ_linear.mat", "T2_to_templ_linear_nobiascorr.mat")
             shutil.copyfile("templ_to_T2_linear.mat", "templ_to_T2_linear_nobiascorr.mat")
-            imcp("T2_brain_templ_linear", "T2_brain_templ_linear_nobiascorr")
-            imcp("T2_templ_linear", "T2_templ_linear_nobiascorr")
+            imcp("T2_brain_templ_linear", "T2_brain_templ_linear_nobiascorr", overwrite=True)
+            imcp("T2_templ_linear", "T2_templ_linear_nobiascorr", overwrite=True)
             
             # Files generated
             # T2_brain_linear - Brain extracted T2 without bias field
@@ -252,9 +252,6 @@ def run(options):
         # T2_brain - Brain-extracted T2
         # T2_brain_templ - Brain-extracted T2 aligned to template
         # T2_templ - T2 aligned with template
-        
-        imcp("T2_brain", "T2_brain_linear")
-        imcp("T2_brain_mask", "T2_brain_mask_linear")
 
         LOG.info(" - Apply the inverse warp to take brain mask to native space after linear registration, binary mask so use nearest neighbour interpolation")
         fsl.applywarp(templ_mask, ref="T2_reorient", out="T2_brain_mask", warp=templ_to_T2_warp, interp="nn")
