@@ -4,6 +4,7 @@ rodent_anat: Output report
 import os
 import logging
 
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -20,7 +21,13 @@ def run(options):
     plt.figure(figsize=(8.27,11.69))   # Standard portrait A4 sizes
     plt.suptitle(f"RODENT_ANAT: Report for {options.input}", fontsize=10, fontweight='bold')
 
-    #self._generate(pdf)
+    img = matplotlib.image.imread("thingy.png")
+    ax = plt.subplot(1, 1, 1)
+    im = ax.imshow(img, interpolation='none', cmap="gray", vmin = 0, vmax=1)
+    plt.colorbar(im, ax=ax)
+    ax.grid(False)
+    ax.axis('off')
+    ax.set_title('')
 
     plt.tight_layout(h_pad=1, pad=4)
     plt.savefig(pdf, format='pdf')

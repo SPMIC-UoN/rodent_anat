@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import utils, anat_pipeline, report
+from . import utils, anat_pipeline, report, qc
 
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, **kwargs):
@@ -66,6 +66,7 @@ def main():
         utils.setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="rodent_anat.log")
 
         anat_pipeline.run(options)
+        qc.run(options)
         if not options.noreport:
             report.run(options)
     except Exception as exc:

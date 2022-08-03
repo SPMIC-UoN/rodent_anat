@@ -34,7 +34,7 @@ import os
 
 from fsl.data.image import Image
 import fsl.wrappers as fsl
-from fsl.utils.imcp import immv
+from fsl.utils.imcp import immv, imcp
 
 from .reorient import to_std_orientation
 from .utils import working_dir, makedirs
@@ -62,7 +62,6 @@ def run(options):
     T2 = Image(options.input)
     
     with working_dir(outdir):
-        makedirs("tmp", exist_ok=True)
         if options.noreorient:
             LOG.info(" - Copying T2 to output directory")
             T2.save("T2_reorient.nii.gz")
@@ -72,38 +71,29 @@ def run(options):
         LOG.info("Step 2: Performing initial brain extraction and registration to standard template")
 
         LOG.info(" - Performing linear registration of T2 to brain-only template")
-        fsl.flirt("T2_reorient", templ_brain, out="tmp/T2_to_templ_linear", omat="tmp/T2_to_templ_linear.mat") # -dof 12
+        fsl.flirt("T2_reorient", templ_brain, out="T2_to_templ_linear", omat="T2_to_templ_linear.mat") # -dof 12
 
-        # Invert this transform
-        fsl.invxfm("tmp/T2_to_templ_linear.mat", "tmp/templ_to_T2_linear.mat")
+        LOG.info(" - Inverting linear registration of T2 to brain-only template")
+        fsl.invxfm("T2_to_templ_linear.mat", "templ_to_T2_linear.mat")
 
         LOG.info(" - Transforming dilated template brain mask to T2 native space")
-        fsl.applyxfm(templ_mask_dil, "T2_reorient", "tmp/templ_to_T2_linear.mat", interp="nearestneighbour", out="T2_mask_dil")
+        fsl.applyxfm(templ_mask_dil, "T2_reorient", "templ_to_T2_linear.mat", interp="nearestneighbour", out="T2_brain_mask")
 
         LOG.info(" - Removing skull from T2")
-        fsl.fslmaths("T2_reorient").mul("T2_mask_dil").run("tmp/T2_brain")
+        fsl.fslmaths("T2_reorient").mul("T2_brain_mask").run("T2_brain")
 
         LOG.info(" - Transforming brain extracted T2 into standard template space")
-        fsl.applyxfm("tmp/T2_brain", templ_brain, "tmp/T2_to_templ_linear.mat", out="tmp/T2_brain_to_templ", interp="trilinear")
-
-        # Check that the linear registration of the T2 brain to the standard template was successful
-        fsl.slicer("tmp/T2_brain_to_templ", templ_brain, a="brain_reorient.png")
-
-        # Check that the brain masking was successful
-        fsl.slicer("T2_reorient", "T2_mask_dil", a="skull_strip.png")
+        fsl.applyxfm("T2_brain", templ_brain, "T2_to_templ_linear.mat", out="T2_brain_templ", interp="trilinear")
 
         LOG.info("Step 3: correct bias-field in skull-stripped T2 volume")
 
-        makedirs("fast", exist_ok=True)
         LOG.info(f" - Running FAST to estimate bias field: smoothing (FWHM) = {options.biassmooth}mm")
-        fsl.fast("tmp/T2_brain", out="fast/T2_brain", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
+        makedirs("fast", exist_ok=True)
+        fsl.fast("T2_brain", out="fast/T2_brain", b=True, B=True, nopve=True, lowpass=options.biassmooth, type=2, segments=False)
 
-        # # Rename the restored/undistorted (ud) brain image
-        immv("fast/T2_brain_restore", "fast/T2_brain_ud", overwrite=True)
-
-        # # Check that the bias correction was successful, keep intensity range constant
-        fsl.slicer("fast/T2_brain_ud", i="0 1", a="bias_corr.png")
-        fsl.slicer("tmp/T2_brain", i="0 1", a="no_bias_corr.png")
+        # Rename the restored/undistorted (ud) brain image
+        #immv("fast/T2_brain_restore", "fast/T2_brain_ud", overwrite=True)
+        imcp("fast/T2_brain_restore", "T2_brain_ud", overwrite=True)
 
         if not options.nobias:
             LOG.info(" - Using estimated bias field to correct re-oriented T2 volume")
@@ -116,18 +106,17 @@ def run(options):
 
         LOG.info("Step 4: Refine the linear registration using the bias corrected brain")
 
-        LOG.info(" - Generate the affine transform from the bias-corrected brain to the standard brain-only template")
-        fsl.flirt("fast/T2_brain_ud", templ_brain, out="T2_to_templ_linear", omat="T2_to_templ_linear.mat")
+        LOG.info(" - Generate the affine transform from the bias-corrected brain to standard brain-only template")
+        fsl.flirt("T2_brain_ud", templ_brain, out="T2_to_templ_linear_ud", omat="T2_to_templ_linear_ud.mat")
 
-        # Invert T2_to_templ_linear.mat
-        fsl.invxfm("T2_to_templ_linear.mat", "templ_to_T2_linear.mat")
+        LOG.info(" - Inverting linear transform of bias-corrected brain to standard brain-only template")
+        fsl.invxfm("T2_to_templ_linear_ud.mat", "templ_to_T2_linear_ud.mat")
 
-        # Check that the refined linear registration was successful
-        fsl.slicer("T2_to_templ_linear", templ_brain, i="0 1", a="linear.png")
+        LOG.info(" - Transforming dilated template brain mask to bias-corrected T2 native space")
+        fsl.applyxfm(templ_mask_dil, "T2_brain_ud", "templ_to_T2_linear_ud.mat", interp="nearestneighbour", out="T2_brain_mask_ud")
 
-        LOG.info(" - Comparing success of linear registration on skull-stripped data with and without bias correction")
-        fsl.flirt("tmp/T2_brain", templ_brain, out="T2_to_templ_linear_biased", dof=12)
-        fsl.slicer("T2_to_templ_linear_biased", templ_brain, a="linear_biased.png", i="0 1")
+        #LOG.info(" - Comparing success of linear registration on skull-stripped data with and without bias correction")
+        #fsl.flirt("T2_brain_dil", templ_brain, out="T2_brain_templ_linear_biased", dof=12)
 
         LOG.info("Step 5: Perform nonlinear registration to map T2 to the standard template")
 
@@ -142,9 +131,6 @@ def run(options):
             # Note: antsRegistrationSyN works best on skull-stripped, bias corrected data
             # see: https://github.com/ANTsX/ANTs/wiki/Anatomy-of-an-antsRegistration-call
             os.system(f"{options.antsdir}/antsRegistrationSyN.sh -d 3 -f {templ_brain} -m T2_to_templ_linear.nii.gz -j 1 -o ANTs/T2_to_templ_ANTs_ -x {templ_mask_dil} |tee ANTs/ants.log")
-
-            # Check that this is working correctly
-            fsl.slicer("ANTs/T2_to_templ_ANTs_Warped", templ_brain, a="ANTs/ANTS.png")
 
             LOG.info(" - Converting ANTs warps so that they are compatible with FSL (ITK transform (RAS) matrix to FSL xfm)")
             os.system(f"{options.c3ddir}/c3d_affine_tool -ref {templ_brain} -src T2_to_templ_linear.nii.gz -itk ANTs/T2_to_templ_ANTs_0GenericAffine.mat -ras2fsl -o ANTs/ANTs_T2_to_templ_affine_flirt.mat")
@@ -218,9 +204,6 @@ def run(options):
             fsl.applywarp("T2_to_templ_linear", ref=templ_brain, out="mmorf/T2_to_templ_mmorf", warp="mmorf/T2_to_templ_warp")
             # ${FSLDIR}/bin/applywarp --ref=${tempBrain} --in=${anatdir}/T2_to_templ_linear.nii.gz --out=${mmorfdir}/T2_to_templ_mmorf --warp=${mmorfdir}/T2_to_templ_warp.nii.gz
 
-            # # Check that this is working correctly
-            fsl.slicer("mmorf/T2_to_templ_mmorf", templ_brain, out="mmorf/mmorf.png")
-
             LOG.info(" - Combining linear transform generated in previous step with the warp generated by MMORF")
             fsl.convertwarp(ref=templ_brain, premat="T2_to_templ_linear.mat", warp1="mmorf/T2_to_templ_warp", out="mmorf/T2_to_templ_combined_warp")
             
@@ -231,7 +214,6 @@ def run(options):
             templ_to_T2_warp = "mmorf/templ_to_T2_combined_warp"
 
         # # Clean and reorganize
-        # # rm ${anatdir}/*tmp*
         makedirs("transforms", exist_ok=True)
         # # mv ${anatdir}/*templ* ${anatdir}/transforms
         os.system("mv *.mat transforms")
@@ -244,14 +226,8 @@ def run(options):
         LOG.info(" - Use the mask created in the previous step to remove the skull from the T2 volume")
         fsl.fslmaths("T2_reorient_ud").mul("T2_mask").run("T2_brain_ud")
 
-        # # Check that the brain masking was successful
-        fsl.slicer("T2_reorient_ud", "T2_mask", out="skull_strip.png")
-
         LOG.info(" - Sanity check: Apply the warp to take subject brain, after refined skull-stripping to template ")
         fsl.applywarp("T2_brain_ud", ref=templ_brain, out="T2_brain_ud_to_templ", warp=T2_to_templ_warp)
-
-        # # Check that this is working correctly
-        fsl.slicer("T2_brain_ud_to_templ", templ_brain, out="skull_strip_std_space.png")
 
         LOG.info("Step 7: segment brain into tissue classes in standard space")
 
