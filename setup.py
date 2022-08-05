@@ -93,6 +93,7 @@ KWARGS = {
        'console_scripts' : {
          'rodent_anat=rodent_anat.main:main',
          'rodent_anat_report=rodent_anat.report:main',
+         'rodent_anat_qc=rodent_anat.qc:main',
          'rodent_preproc=rodent_anat.preproc:main',
          'reorient2std=rodent_anat.reorient2std:main',
        }

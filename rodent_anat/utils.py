@@ -4,6 +4,7 @@ rodent_mri: Useful utility functions
 from contextlib import contextmanager
 import logging
 import os
+import glob
 import tempfile
 
 import nibabel as nib
@@ -45,7 +46,7 @@ def movedir(path, dir):
     """
     return os.path.join(dir, os.path.basename(path))
 
-def orient_cost(img_fname, ref_fname):
+def orient_cost(img_fname, ref_fname, allow_translation=True):
     """
     Get the cost of aligning two images by translation alone
     
@@ -62,15 +63,19 @@ def orient_cost(img_fname, ref_fname):
         else:
             raise RuntimeError("FSLDIR is not set")
         os.system(f'fslroi {img_fname} vol1 0 1')
-        os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/xyztrans.sch -omat xyztrans.mat >regout 2>reg_stderr')
-        os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch -init xyztrans.mat >costout 2>cost_stderr')
+        if allow_translation:
+            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/xyztrans.sch -omat xyztrans.mat >regout 2>reg_stderr')
+            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch -init xyztrans.mat >costout 2>cost_stderr')
+        else:
+            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch >costout 2>cost_stderr')
+
         with open("costout", "r") as f:
             for line in f:
                 cost = float(line.split()[0])
                 LOG.debug(f"Alignment of {img_fname} and {ref_fname}: cost={cost}")
                 return cost
 
-def makedirs(dpath, exist_ok=False):
+def makedirs(dpath, exist_ok=False, clean_imgs=False):
     """
     Make directories, optionally ignoring them if they already exist
     """
@@ -78,8 +83,14 @@ def makedirs(dpath, exist_ok=False):
         os.makedirs(dpath)
     except OSError as exc:
         import errno
-        if not exist_ok or exc.errno != errno.EEXIST:
+        if exc.errno == errno.EEXIST and exist_ok:
+            if clean_imgs:
+                for ext in ("nii", "nii.gz", "json", "bval", "bvec"):
+                    for f in glob.glob(os.path.join(dpath, f"*.{ext}")):
+                        os.remove(f)
+        else:
             raise
+
 
 def setup_logging(outdir=".", logfile_name="logfile", **kwargs):
     """

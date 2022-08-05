@@ -24,6 +24,7 @@ import os
 import logging
 import argparse
 import sys
+import json
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -85,13 +86,16 @@ class Report:
         LOG.info("START: GENERATING REPORT")
         self._newpage(first=True)
 
+        with open(os.path.join(self.qcdir, "qc.json")) as f:
+            qcdata = json.load(f)
+        
         qc_measures = []
-        qc_measures.append(["CNR", "1.23"])
-        qc_measures.append(["SNR", "4.56"])
-        qc_measures.append(["Signal inhomogenaity (non bias corrected)", "7.89"])
-        qc_measures.append(["Signal inhomogenaity (bias corrected)", "1.23"])
-        qc_measures.append(["Cross-correlation with template (linear)", "4.56"])
-        qc_measures.append(["Cross-correlation with template (nonlinear)", "7.89"])
+        qc_measures.append(["GM/WM CNR", "%.2f" % qcdata["qc_gm_wm_cnr"]])
+        qc_measures.append(["T2 SNR", "%.2f" % qcdata["qc_t2_snr"]])
+        qc_measures.append(["Alignment cost (linear)", "%.2f" % qcdata["qc_linear_align_cost"]])
+        qc_measures.append(["Alignment cost (nonlinear)", "%.2f" % qcdata["qc_nonlin_align_cost"]])
+        #qc_measures.append(["Signal inhomogenaity (non bias corrected)", "7.89"])
+        #qc_measures.append(["Signal inhomogenaity (bias corrected)", "1.23"])
         self._show_table(plt.subplot(3, 1, 1), "QC measures", qc_measures)
 
         self._slicer_image(plt.subplot(3, 1, 2), "Linear registration", "reg_linear.png")
