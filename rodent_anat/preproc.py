@@ -55,7 +55,7 @@ def prune(categorized_files, options):
                         if os.path.exists(fpath_sidecar):
                             os.remove(fpath_sidecar)
 
-def fix_dti_orinetation(categorized_files, options):
+def fix_dti(categorized_files, options):
     if not options.nofixdti:
         if categorized_files[ANAT_BEST]:
             anat_fpath = categorized_files[ANAT_BEST][0]
@@ -115,7 +115,7 @@ def main():
         if os.path.exists(options.output) and not options.overwrite:
             parser.error(f"Output directory {options.output} already exists - use --overwrite to ignore")
 
-        makedirs(options.output, True)
+        makedirs(options.output, exist_ok=True, clean_imgs=True)
         setup_logging(options.output, level="DEBUG" if options.debug else "INFO", save_log=True, log_stream=sys.stdout, logfile_name="preproc.log")
 
         # Convert data to NIFTI in standard orientation and categorize files
@@ -131,7 +131,7 @@ def main():
         prune(categorized_files, options)
 
         # Fix DTI orientation if requested
-        fix_dti_orientation(categorized_files, options)
+        fix_dti(categorized_files, options)
         
         # Fix DTI BVAL ordering if requested
         fix_bval_ordering(categorized_files, options)
