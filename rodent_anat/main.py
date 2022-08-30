@@ -48,9 +48,13 @@ def main():
         elif not options.strongbias:
             options.weakbias = True
 
+        if not os.path.isfile(options.input):
+            parser.error(f"Input file {options.input} does not exist or is not a file")
+
         if not options.output:
             inpath = os.path.abspath(options.input)
-            inpath = inpath[:inpath.index(".nii")]
+            if ".nii" in inpath:
+                inpath = inpath[:inpath.index(".nii")]
             options.output = inpath + ".anat"
 
         if not options.template:
