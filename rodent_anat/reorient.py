@@ -79,7 +79,7 @@ def to_std_orientation(fpath, out_fpath=None, convention=NEURO, flip_ap=False):
     LOG.debug(f" - Dimension re-order: {dim_reorder}, flip: {dim_flip}")
     if sorted(dim_reorder) != [0, 1, 2]:
         raise RuntimeError("Could not find consistent dimension re-ordering")
-    
+
     new_data = np.copy(data)
     new_affine = np.copy(affine)
 
@@ -128,7 +128,7 @@ def to_std_orientation(fpath, out_fpath=None, convention=NEURO, flip_ap=False):
         out_bvec_fpath = sidecar(out_fpath, "bvec")
         _reorient_bvec(bvec_fpath, out_bvec_fpath, dim_reorder, dim_flip, flip_ap)
 
-def reorient_niftis(niftidir, flip_ap=False):
+def reorient_niftis(niftidir, outdir, flip_ap=False):
     """
     Re-orient all the Nifti files in a directory in-place
 
@@ -140,5 +140,6 @@ def reorient_niftis(niftidir, flip_ap=False):
     for path, _dirs, files in os.walk(niftidir):
         for fname in files:
             fpath = os.path.join(path, fname)
+            out_fpath = os.path.join(outdir, fname)
             if ".nii" in fname:
-                to_std_orientation(fpath, flip_ap=flip_ap)
+                to_std_orientation(fpath, out_fpath, flip_ap=flip_ap)
