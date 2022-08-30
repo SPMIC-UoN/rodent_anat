@@ -30,7 +30,16 @@ def sidecar(img_fpath, ext):
 
     :return: Path to sidecar of Nifti file with given extension
     """
-    return img_fpath[:img_fpath.index(".nii")] + "." + ext
+    fpath = img_fpath[:img_fpath.index(".nii")] + "." + ext
+    if not os.path.exists(fpath):
+        # Special case - look for files ending -0N.nii.gz
+        for n in range(10):
+            trial_ext = "-0%i.nii" % n
+            if trial_ext in img_fpath:
+                sidecar_fpath = img_fpath[:img_fpath.index(trial_ext)] + "." + ext
+                if os.path.exists(sidecar_fpath):
+                    return sidecar_fpath
+    return fpath
 
 def num_vols(nii):
     """
@@ -101,12 +110,11 @@ def setup_logging(outdir=".", logfile_name="logfile", **kwargs):
 
     # Set log level on the root logger to allow for the possibility of 
     # debug logging on individual loggers
-    level = kwargs.get("log_level", "info")
+    level = kwargs.get("level", "info")
     if not level:
         level = "info"
     level = getattr(logging, level.upper(), logging.INFO)
     logging.getLogger().setLevel(level)
-
     if outdir and kwargs.get("save_log", False):
         # Send the log to an output logfile
         makedirs(outdir, True)
