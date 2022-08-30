@@ -143,3 +143,24 @@ def reorient_niftis(niftidir, outdir, flip_ap=False):
             out_fpath = os.path.join(outdir, fname)
             if ".nii" in fname:
                 to_std_orientation(fpath, out_fpath, flip_ap=flip_ap)
+
+def copy_no_reorient(niftidir, outdir):
+    """
+    Re-orient all the Nifti files in a directory in-place
+
+    :param flip_ap: If True, flip the A-P dimension in world space. Used when
+                    subject (rodent) has been put in scanner tail-first rather
+                    than the more usual nose-first
+    """
+    LOG.info(f"Copying files in {niftidir} without reorientation")
+    for path, _dirs, files in os.walk(niftidir):
+        for fname in files:
+            fpath = os.path.join(path, fname)
+            out_fpath = os.path.join(outdir, fname)
+            if ".nii" in fname:
+                shutil.copy(fpath, out_fpath)
+                for sidecar_ext in ("json", "bval", "bvec"):
+                    sidecar_fpath = sidecar(fpath, sidecar_ext)
+                    if os.path.exists(sidecar_fpath):
+                        out_sidecar_fpath = sidecar(out_fpath, sidecar_ext)
+                        shutil.copy(sidecar_fpath, out_sidecar_fpath)
