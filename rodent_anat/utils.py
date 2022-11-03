@@ -62,27 +62,32 @@ def orient_cost(img_fname, ref_fname, allow_translation=True):
     The idea is that this will be higher when one image is incorrectly
     flipped wrt the other
     """
+    img_fname = os.path.abspath(img_fname)
+    ref_fname = os.path.abspath(ref_fname)
     if not os.path.exists(ref_fname):
         # No reference
         return 0
+    ref_fname = os.path.abspath(ref_fname)
+
+    if "FSLDIR" in os.environ:
+        fsldir = os.environ["FSLDIR"]
+    else:
+        raise RuntimeError("FSLDIR is not set")
 
     with tempfile.TemporaryDirectory() as d:
-        if "FSLDIR" in os.environ:
-            fsldir = os.environ["FSLDIR"]
-        else:
-            raise RuntimeError("FSLDIR is not set")
-        os.system(f'fslroi {img_fname} vol1 0 1')
-        if allow_translation:
-            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/xyztrans.sch -omat xyztrans.mat >regout 2>reg_stderr')
-            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch -init xyztrans.mat >costout 2>cost_stderr')
-        else:
-            os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch >costout 2>cost_stderr')
+        with working_dir(d):
+            os.system(f'fslroi {img_fname} vol1 0 1')
+            if allow_translation:
+                os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/xyztrans.sch -omat xyztrans.mat >regout 2>reg_stderr')
+                os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch -init xyztrans.mat >costout 2>cost_stderr')
+            else:
+                os.system(f'flirt -in vol1 -ref "{ref_fname}" -schedule {fsldir}/etc/flirtsch/measurecost1.sch >costout 2>cost_stderr')
 
-        with open("costout", "r") as f:
-            for line in f:
-                cost = float(line.split()[0])
-                LOG.debug(f"Alignment of {img_fname} and {ref_fname}: cost={cost}")
-                return cost
+            with open("costout", "r") as f:
+                for line in f:
+                    cost = float(line.split()[0])
+                    LOG.debug(f"Alignment of {img_fname} and {ref_fname}: cost={cost}")
+                    return cost
 
 def makedirs(dpath, exist_ok=False, clean_imgs=False):
     """
