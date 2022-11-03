@@ -43,7 +43,7 @@ def sliceimg(img_fname, mask_fname=None, outname=None):
     if mask_fname:
         mask = Image(mask_fname).data > 0.5
         img = img[mask]
-    imax = int(np.percentile(img, 95))
+    imax = int(np.nanpercentile(img, 99))
     fsl.slicer(img_fname, mask_fname, i="0 %i" % imax, a=os.path.join("qc", outname + ".png"))
 
 def run(options):
