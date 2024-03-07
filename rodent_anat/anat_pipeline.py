@@ -26,7 +26,8 @@ Templates are derived from Barriere et al., 2019, Nat Commun, see: https://doi.o
 The olfactory bulb has been removed and the binary mask has been dilated using fslmaths -ero
 have also used fslorient2std
 
- Authors: Jenna Hanmer, Matteo Bastiani & Stamatios Sotiropoulos
+ Developed by Jenna Hanmer with support from Martin Craig, under the supervision of Matteo Bastiani, Stamatios Sotiropoulos, Paul Morgan & Tracy Farr
+ 
 """
 
 import logging
