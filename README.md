@@ -23,7 +23,8 @@ rodent_anat.
 Preprocessing
 
 
-Dependencies
+Development
 
-This pipeline depends on the conversion of Paravision data using a modified verion of brkraw 
-(https://github.com/SPMIC-UoN/brkraw). 
+This pipeline was developed by Jenna Hanmer, with support from Martin Craig, under 
+the supervision of Matteo Bastiani, Stamatios Sotiropoulos, Paul Morgan & Tracy Farr. 
+It is still a work-in-process. 
