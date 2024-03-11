@@ -12,4 +12,18 @@ The primary purpose of rodent_anat is to provide rodent structural MRI research
 with a standard, flexible, and robust image processing platform, which can 
 generalise across scanners and acquisition protocols. 
 
+rodent_anat is used in conjunction with https://github.com/SPMIC-UoN/brkraw 
+and https://github.com/jennahanmer/DiffPreproc_rodent. 
+https://github.com/SPMIC-UoN/brkraw is a verion of brkraw that has been 
+modified such that it is better equipped for diffusion weighted imaging. 
+https://github.com/jennahanmer/DiffPreproc_rodent preprocesses rodent dw-scans. 
+It requires, as input, the T2-weighted scan and brain mask, created by
+rodent_anat. 
+
 Preprocessing
+
+
+Dependencies
+
+This pipeline depends on the conversion of Paravision data using a modified verion of brkraw 
+(https://github.com/SPMIC-UoN/brkraw). 
